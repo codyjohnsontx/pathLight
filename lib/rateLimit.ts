@@ -21,7 +21,9 @@ export function rateLimit(key: string): RateLimitResult {
   const existing = buckets.get(key);
 
   if (!existing || now >= existing.resetAt) {
-    if (buckets.size > MAX_KEYS) buckets.clear();
+    // Guard against unbounded growth by sweeping only elapsed windows — never
+    // clear the whole map, which would reset clients that are actively limited.
+    if (buckets.size > MAX_KEYS) sweepExpired(now);
     buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
     return { ok: true, retryAfter: 0 };
   }
@@ -32,4 +34,11 @@ export function rateLimit(key: string): RateLimitResult {
 
   existing.count += 1;
   return { ok: true, retryAfter: 0 };
+}
+
+/** Remove only entries whose window has already elapsed (keeps active limits). */
+function sweepExpired(now: number): void {
+  for (const [key, window] of buckets) {
+    if (now >= window.resetAt) buckets.delete(key);
+  }
 }
