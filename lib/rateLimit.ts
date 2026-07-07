@@ -12,7 +12,7 @@ type Window = { count: number; resetAt: number };
 const buckets = new Map<string, Window>();
 const LIMIT = 30; // requests per window
 const WINDOW_MS = 60_000; // 1 minute
-const MAX_KEYS = 10_000; // crude guard against unbounded growth
+const MAX_KEYS = 10_000; // hard cap on tracked keys (oldest evicted beyond this)
 
 export type RateLimitResult = { ok: boolean; retryAfter: number };
 
@@ -21,9 +21,10 @@ export function rateLimit(key: string): RateLimitResult {
   const existing = buckets.get(key);
 
   if (!existing || now >= existing.resetAt) {
-    // Guard against unbounded growth by sweeping only elapsed windows — never
-    // clear the whole map, which would reset clients that are actively limited.
-    if (buckets.size > MAX_KEYS) sweepExpired(now);
+    // Keep the map bounded: sweep elapsed windows first, then evict the oldest
+    // entries if it's still at the cap (a flood of many active keys). Never
+    // clears the whole map, which would reset actively-limited clients.
+    if (buckets.size >= MAX_KEYS) enforceCapacity(now);
     buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
     return { ok: true, retryAfter: 0 };
   }
@@ -34,6 +35,23 @@ export function rateLimit(key: string): RateLimitResult {
 
   existing.count += 1;
   return { ok: true, retryAfter: 0 };
+}
+
+/**
+ * Keep `buckets` bounded. Drop elapsed windows first; if the map is still at the
+ * cap (many active keys arriving within one window), evict the oldest entries by
+ * insertion order to make room for the incoming key. Never clears the whole map.
+ */
+function enforceCapacity(now: number): void {
+  sweepExpired(now);
+  if (buckets.size < MAX_KEYS) return;
+  const toEvict = buckets.size - MAX_KEYS + 1; // leave room for the incoming key
+  let evicted = 0;
+  for (const key of buckets.keys()) {
+    if (evicted >= toEvict) break;
+    buckets.delete(key);
+    evicted += 1;
+  }
 }
 
 /** Remove only entries whose window has already elapsed (keeps active limits). */
