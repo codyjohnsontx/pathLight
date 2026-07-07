@@ -28,7 +28,9 @@ export const CLASSIFY_SYSTEM = [
 ].join("\n");
 
 export function buildClassifyUserPrompt(question: string): string {
-  return `User's question:\n"""${question}"""`;
+  // JSON-encode the question so embedded quotes/newlines stay literal and can't
+  // break out of the surrounding delimiters.
+  return `User's question:\n${JSON.stringify(question)}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -84,7 +86,7 @@ export function buildGenerateUserPrompt(
     .join("\n");
 
   return [
-    `Original user question:\n"""${question}"""`,
+    `Original user question:\n${JSON.stringify(question)}`,
     "",
     `Classification JSON:\n${JSON.stringify(classification)}`,
     "",

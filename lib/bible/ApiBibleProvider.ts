@@ -21,6 +21,7 @@ export class ApiBibleProvider implements BibleProvider {
 
   private readonly apiKey = process.env.BIBLE_API_KEY;
   private readonly bibleId = process.env.BIBLE_ID ?? "9879dbb7cfe39e4d-01"; // WEB (example)
+  private readonly translationCode = translationCodeFor(this.bibleId);
   private readonly baseUrl = "https://api.scripture.api.bible/v1";
 
   async getPassage(query: PassageQuery): Promise<BiblePassageText> {
@@ -47,11 +48,21 @@ export class ApiBibleProvider implements BibleProvider {
     url.searchParams.set("include-titles", "false");
     url.searchParams.set("include-verse-numbers", "true");
 
-    const res = await fetch(url, {
-      headers: { "api-key": this.apiKey },
-      // Cache passages briefly; they never change.
-      next: { revalidate: 60 * 60 * 24 },
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: { "api-key": this.apiKey },
+        // Abort a hung upstream instead of blocking the request indefinitely.
+        signal: AbortSignal.timeout(10_000),
+        // Cache passages briefly; they never change.
+        next: { revalidate: 60 * 60 * 24 },
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === "TimeoutError") {
+        throw new Error("API.Bible request timed out.");
+      }
+      throw err;
+    }
 
     if (!res.ok) {
       throw new Error(`API.Bible request failed: ${res.status} ${res.statusText}`);
@@ -68,8 +79,12 @@ export class ApiBibleProvider implements BibleProvider {
     return {
       reference: json.data?.reference ?? query.reference,
       text,
-      translation: this.bibleId,
-      chapterUrl: chapterContextUrl(query.book, query.chapter),
+      translation: this.translationCode,
+      chapterUrl: chapterContextUrl(
+        query.book,
+        query.chapter,
+        this.translationCode,
+      ),
       isPlaceholder: false,
     };
   }
@@ -103,4 +118,19 @@ const BOOK_IDS: Record<string, string> = {
 
 function bookIdFor(book: string): string | undefined {
   return BOOK_IDS[book.trim().toLowerCase()];
+}
+
+/**
+ * Map an API.Bible bible id to a short, human-readable translation code (also
+ * usable as a Bible Gateway version code). Falls back to an env override, then
+ * "WEB", so `translation` is never the raw GUID.
+ */
+const TRANSLATION_CODES: Record<string, string> = {
+  "9879dbb7cfe39e4d-01": "WEB",
+};
+
+function translationCodeFor(bibleId: string): string {
+  return (
+    TRANSLATION_CODES[bibleId] ?? process.env.BIBLE_TRANSLATION_CODE ?? "WEB"
+  );
 }

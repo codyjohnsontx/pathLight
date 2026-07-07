@@ -5,8 +5,19 @@ import { classifyQuestion } from "@/lib/ai/classifyQuestion";
 import { generateGuidance } from "@/lib/ai/generateGuidance";
 import { AskRequestSchema } from "@/lib/ai/schemas";
 import { searchPassages } from "@/lib/passages/searchPassages";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
+
+/** Best-effort client identifier for rate limiting (proxy header, then fallback). */
+function clientKey(request: Request): string {
+  const xff = request.headers.get("x-forwarded-for");
+  return (
+    xff?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
 
 /**
  * POST /api/ask
@@ -47,6 +58,19 @@ export async function POST(request: Request) {
     // 2. Deterministic crisis gate.
     if (detectCrisis(question)) {
       return NextResponse.json(buildCrisisResponse());
+    }
+
+    // 2b. Rate limit before the (potentially paid) LLM path. Crisis responses
+    //     above are intentionally never rate-limited.
+    const limit = rateLimit(clientKey(request));
+    if (!limit.ok) {
+      return NextResponse.json(
+        {
+          error:
+            "You're sending requests too quickly. Please wait a moment and try again.",
+        },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+      );
     }
 
     // 3. Classify.

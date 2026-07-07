@@ -25,7 +25,11 @@ export default function Home() {
     try {
       setResponse(await askQuestion(q));
     } catch (err) {
-      setError((err as Error).message);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
+      );
     } finally {
       setLoading(false);
     }

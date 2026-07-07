@@ -1,4 +1,4 @@
-import { useLlama } from "@/lib/ai/config";
+import { shouldUseLlama } from "@/lib/ai/config";
 import { generateWithLlama } from "@/lib/ai/llamaClient";
 import { mockGuidance } from "@/lib/ai/mock";
 import { DISCLAIMER } from "@/lib/ai/prompts";
@@ -85,7 +85,7 @@ export async function generateGuidance(
   classification: Classification,
   groups: ThemeGroup[],
 ): Promise<GuidanceResponse> {
-  if (useLlama()) {
+  if (shouldUseLlama()) {
     try {
       const raw = await generateWithLlama(question, classification, groups);
       const sanitized = sanitizeGuidance(raw, groups);

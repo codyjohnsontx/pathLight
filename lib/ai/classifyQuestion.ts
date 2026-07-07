@@ -1,4 +1,4 @@
-import { useLlama } from "@/lib/ai/config";
+import { shouldUseLlama } from "@/lib/ai/config";
 import { classifyWithLlama } from "@/lib/ai/llamaClient";
 import { mockClassify } from "@/lib/ai/mock";
 import type { Classification } from "@/types/guidance";
@@ -12,7 +12,7 @@ import type { Classification } from "@/types/guidance";
 export async function classifyQuestion(
   question: string,
 ): Promise<Classification> {
-  if (useLlama()) {
+  if (shouldUseLlama()) {
     try {
       return await classifyWithLlama(question);
     } catch (err) {

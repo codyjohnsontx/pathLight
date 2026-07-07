@@ -30,12 +30,21 @@ export function PassageModal({ reference, open }: PassageModalProps) {
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setLoading(true);
-    setError(null);
-    fetchPassage(reference)
-      .then((d) => active && setData(d))
-      .catch(() => active && setError("Could not load this passage right now."))
-      .finally(() => active && setLoading(false));
+    // Run inside an async function so state updates happen in callbacks rather
+    // than synchronously in the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      setLoading(true);
+      setError(null);
+      setData(null); // clear stale passage when (re)fetching
+      try {
+        const d = await fetchPassage(reference);
+        if (active) setData(d);
+      } catch {
+        if (active) setError("Could not load this passage right now.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
     return () => {
       active = false;
     };

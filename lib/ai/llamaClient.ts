@@ -24,6 +24,13 @@ import type { Classification, ThemeGroup } from "@/types/guidance";
  *
  * Callers wrap these in try/catch and fall back to the deterministic mock, so a
  * missing key, an unreachable endpoint, or malformed JSON never breaks /api/ask.
+ *
+ * PRIVACY: on the non-mock path the user's question leaves this server. The
+ * buildClassifyUserPrompt / buildGenerateUserPrompt payloads contain the user's
+ * situation text and are sent to the configured provider (e.g. Groq) as a third
+ * party. Before enabling a hosted provider in production, review that provider's
+ * data-use and retention terms and your users' consent expectations. Ollama
+ * (a local AI_BASE_URL) keeps the data on your own machine.
  */
 
 const BASE_URL = process.env.AI_BASE_URL ?? "http://localhost:11434/v1";

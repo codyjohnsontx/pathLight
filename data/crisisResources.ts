@@ -44,8 +44,13 @@ export const crisisKeywords: string[] = [
   "he abuses me",
   "she abuses me",
   "they abuse me",
-  "hits me",
-  "beats me",
+  // Subject-qualified to avoid idiom false positives ("beats me" = "I don't
+  // know"; "it hits me hard") while still catching clear abuse disclosures.
+  "he hits me",
+  "she hits me",
+  "they hit me",
+  "he beats me",
+  "she beats me",
   "hurting me",
   "in danger",
   "not safe at home",

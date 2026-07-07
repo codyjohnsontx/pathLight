@@ -39,7 +39,7 @@ const RULES: Rule[] = [
     emotions: ["fear"],
   },
   {
-    patterns: ["discouraged", "hopeless", "giving up", "give up", "defeated", "down", "depress"],
+    patterns: ["discouraged", "hopeless", "giving up", "give up", "defeated", "feel down", "feeling down", "depress"],
     themes: ["perseverance", "hope", "comfort"],
     emotions: ["discouragement"],
   },
